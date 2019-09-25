@@ -8,6 +8,8 @@ build = "build.rs"
 [dependencies]
 cpp = "0.5"
 winit = "0.20.0-alpha3"
+libc = "0.2"
 
 [build-dependencies]
 cpp_build = "0.5"
+cc = { version = "1.0", features = ["parallel"] }
