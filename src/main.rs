@@ -1,70 +1,107 @@
-#[macro_use]
-extern crate cpp;
-
-use winit::{
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    platform::windows::WindowExtWindows,
-    window::WindowBuilder,
+use legion::prelude::*;
+use std::{
+  thread::sleep,
+  time::{Duration, Instant},
 };
 
-#[link(name = "legion_filament_cpp")]
-extern "C" {
-    fn init(window_handle: *mut std::ffi::c_void);
-}
+extern crate sdl2;
 
-// cpp! {{
-//     #include <filament/Camera.h>
-//     #include <filament/Color.h>
-//     #include <filament/Engine.h>
-//     #include <filament/FilamentAPI.h>
-//     #include <filament/Renderer.h>
-//     #include <filament/Scene.h>
-//     #include <filament/View.h>
-//     #include <math/vec4.h>
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use sdl2::pixels::{Color, PixelFormatEnum};
+use sdl2::rect::{Point, Rect};
 
-//     using namespace filament;
-//     using namespace filament::math;
-// }}
+mod raw_bindings;
+// mod rendering_system;
+// mod system;
+// mod window_system;
+
+const MATERIAL_BYTES: &'static [u8] = include_bytes!("../materials/aiDefaultMat.filamat");
 
 fn main() {
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
-    let handle = unsafe { window.hwnd() };
+  let sdl = sdl2::init().unwrap();
+  let video_subsystem = sdl.video().unwrap();
+  let mut window = video_subsystem
+    .window("Game", 960, 720)
+    .allow_highdpi()
+    .build()
+    .unwrap();
 
-    // let x: i32 = cpp!(unsafe [handle as "void*"] -> i32 as "int32_t" {
-    //     Engine *engine = Engine::create();
-    //     SwapChain* swapChain = engine->createSwapChain(handle);
-    //     Renderer* renderer = engine->createRenderer();
+  let (width, height) = window.drawable_size();
+  println!("Rust side size: {}x{}", width, height);
 
-    //     Camera* camera = engine->createCamera();
-    //     View* view = engine->createView();
-    //     view->setClearTargets(true, true, false);
-    //     view->setRenderTarget(View::TargetBufferFlags::DEPTH_AND_STENCIL);
-    //     view->setShadowsEnabled(false);
-    //     view->setClearColor({0.0, 0.25, 0.5, 1.0});
-    //     Scene* scene = engine->createScene();
+  unsafe {
+    raw_bindings::filament::run_test(
+      window.raw() as *mut std::ffi::c_void,
+      width,
+      height,
+      MATERIAL_BYTES.as_ptr() as *mut std::ffi::c_void,
+      MATERIAL_BYTES.len() as u64,
+    );
+  }
 
-    //     // view->setCamera(camera);
-    //     // view->setScene(scene);
+  // let mut event_pump = sdl.event_pump().unwrap();
+  // 'main: loop {
+  //   let start_time = std::time::Instant::now();
+  //   unsafe {
+  //     raw_bindings::filament::draw();
+  //   }
 
-    //     while (!renderer->beginFrame(swapChain)) {}
-    //     renderer->render(view);
-    //     renderer->endFrame();
+  //   // for event in event_pump.poll_iter() {
+  //   //   match event {
+  //   //     sdl2::event::Event::Quit { .. } => break 'main,
+  //   //     _ => {}
+  //   //   };
+  //   // }
 
-    //     // engine->destroy(&engine);
-    //     return 0;
-    // });
+  //   // let title = format!("Render time: {}ms", start_time.elapsed().as_millis());
+  //   // window.set_title(&title).unwrap();
 
-    unsafe {
-        init(handle);
-    }
+  //   // std::thread::sleep(std::time::Duration::from_millis(16));
+  // }
 
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            window_id,
-        } if window_id == window.id() => *control_flow = ControlFlow::Exit,
-        _ => *control_flow = ControlFlow::Wait,
-    });
+  // let mut resources = Resources::new();
+
+  // let universe = Universe::new();
+  // let mut world = universe.create_world();
+
+  // let mut window_system = WindowSystem::new(&mut resources);
+  // let mut rendering_system = RenderingSystem::new(&mut resources);
+
+  // let mut exit = false;
+  // let target_frame_time = Duration::from_secs(1) / 144;
+  // let mut window_event_reader = resources.window_event_channel.register_reader();
+
+  // while !exit {
+  //   let frame_timer = Instant::now();
+
+  //   window_system.run(&mut world, &mut resources);
+  //   rendering_system.run(&mut world, &mut resources);
+
+  //   for event in resources
+  //     .window_event_channel
+  //     .read(&mut window_event_reader)
+  //   {
+  //     match event {
+  //       Event::WindowEvent {
+  //         event: WindowEvent::CloseRequested,
+  //         ..
+  //       } => {
+  //         exit = true;
+  //       }
+  //       _ => {}
+  //     }
+  //   }
+
+  //   // Try to sleep long enough to hit the target frame time.
+  //   if frame_timer.elapsed() < target_frame_time {
+  //     sleep(target_frame_time - frame_timer.elapsed());
+  //   }
+
+  //   let title = format!(
+  //     "Quad Example - Last frame: {:.2}ms",
+  //     (frame_timer.elapsed().as_micros() as f64) / 1000_f64
+  //   );
+  //   resources.window.as_ref().unwrap().set_title(&title);
+  // }
 }
