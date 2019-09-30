@@ -1,8 +1,7 @@
 extern crate bindgen;
 extern crate cc;
 
-use std::env;
-use std::path::PathBuf;
+use std::{env, path::PathBuf, fs::File};
 
 #[cfg(target_os = "macos")]
 fn link() {
@@ -77,6 +76,43 @@ fn generate_bindings() {
   bindings
     .write_to_file(out_path.join("bindings.rs"))
     .expect("Couldn't write bindings!");
+}
+
+fn download_filament_prebuilt(url: &str) -> String {
+    let temp_dir = env::temp_dir();
+    let filename = url.split("/").unwrap().last().unwrap();
+    let tar_file_path = temp_dir.join(filename);
+
+    if tar_file_path.exists() {
+      return tar_file_path;
+    }
+
+    // Download the tarball.
+    let f = File::create(&tar_file_path).unwrap();
+    let mut writer = BufWriter::new(f);
+    let mut easy = Easy::new();
+    easy.url(&url).unwrap();
+    easy.write_function(move |data| Ok(writer.write(data).unwrap())).unwrap();
+    easy.perform().unwrap();
+
+    let response_code = easy.response_code().unwrap();
+    if response_code != 200 {
+        panic!(
+            "Unexpected response code while downloading prebuilt {} for {}",
+            response_code, binary_url
+        );
+    }
+
+    // Extract the tarball.
+    let unpacked_dir = download_dir.join(base_name);
+    let lib_dir = unpacked_dir.join("lib");
+    let framework_library_file = format!("lib{}.so", FRAMEWORK_LIBRARY);
+    let library_file = format!("lib{}.so", LIBRARY);
+    let framework_library_full_path = lib_dir.join(&framework_library_file);
+    let library_full_path = lib_dir.join(&library_file);
+    if !framework_library_full_path.exists() || !library_full_path.exists() {
+        extract(file_name, &unpacked_dir);
+    }
 }
 
 fn main() {

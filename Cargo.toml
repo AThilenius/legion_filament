@@ -16,3 +16,5 @@ winit = "0.19"
 [build-dependencies]
 bindgen = "0.51"
 cc = { version = "1.0", features = ["parallel"] }
+curl = "0.4"
+tar = "0.4"
