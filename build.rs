@@ -80,16 +80,13 @@ fn generate_bindings() {
 }
 
 fn main() {
-  let source = vec![
-    "cpp/src/rendering_system.cc",
-    "cpp/src/window_helper_osx.mm",
-  ];
+  generate_bindings();
+
+  let source = vec!["cpp/src/rendering_system.cc"];
 
   link();
   cc_build(source);
-  generate_bindings();
 
   // Also re-run if any C++ source changes (useful for dev)
-
   println!("cargo:rerun-if-changed=cpp/src/**/*");
 }

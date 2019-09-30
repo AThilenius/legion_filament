@@ -1,13 +1,9 @@
 use crate::raw_bindings::filament;
 use crate::{Resources, System};
 use legion::world::World;
-use winit::{
-  event_loop::{ControlFlow, EventLoop},
-  platform::desktop::EventLoopExtDesktop,
-  window::{Window, WindowBuilder},
-};
+use winit::Window;
 
-const MATERIAL_BYTES: &'static [u8] = include_bytes!("../materials/aiDefaultMat.filamat");
+const MATERIAL_BYTES: &'static [u8] = include_bytes!("../materials/bin/color_unlit.filamat");
 
 pub struct RenderingSystem {
   filament_rendering_system: filament::RenderingSystem,
@@ -15,16 +11,14 @@ pub struct RenderingSystem {
 
 impl System for RenderingSystem {
   fn new(resources: &mut Resources) -> Self {
-    let window = &resources
-      .window
-      .as_ref()
-      .expect("A WindowSystem must be created before a RenderSystem");
-    let window_handle = get_active_surface(window);
-    let (width, height) = window.inner_size().into();
+    let window = resources.window.as_ref().unwrap();
+    let hidpi = window.get_hidpi_factor();
+    let (width, height) = window.get_inner_size().unwrap().to_physical(hidpi).into();
+
     RenderingSystem {
       filament_rendering_system: unsafe {
         filament::RenderingSystem::new(
-          window_handle,
+          get_active_surface(window),
           width,
           height,
           MATERIAL_BYTES.as_ptr() as *mut std::ffi::c_void,
@@ -34,7 +28,7 @@ impl System for RenderingSystem {
     }
   }
 
-  fn run(&mut self, world: &mut World, resources: &mut Resources) {
+  fn run(&mut self, _world: &mut World, _resources: &mut Resources) {
     unsafe {
       self.filament_rendering_system.Render();
     }
@@ -51,12 +45,12 @@ impl Drop for RenderingSystem {
 
 #[cfg(target_os = "macos")]
 fn get_active_surface(window: &Window) -> *mut std::ffi::c_void {
-  use winit::platform::macos::WindowExtMacOS;
-  window.nsview()
+  use winit::os::macos::WindowExt;
+  window.get_nsview()
 }
 
 #[cfg(target_os = "windows")]
 fn get_active_surface(window: &Window) -> *mut std::ffi::c_void {
-  use winit::platform::windows::WindowExtWindows;
-  window.hwnd()
+  use winit::os::windows::WindowExt;
+  window.get_hwnd()
 }

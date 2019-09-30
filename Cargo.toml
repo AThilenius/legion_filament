@@ -6,11 +6,12 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
+# sdl2 = { version = "0.31", features = ["bundled", "static-link"] }
 legion = { git = "https://github.com/TomGillen/legion.git" }
 legion_transform = { git = "https://github.com/AThilenius/legion_transform.git" }
 nalgebra = "0.18"
-sdl2 = { version = "0.31", features = ["bundled", "static-link"] }
 shrev = "1.1"
+winit = "0.19"
 
 [build-dependencies]
 bindgen = "0.51"

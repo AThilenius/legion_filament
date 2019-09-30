@@ -1,34 +1,30 @@
 # Legion Filament
 
 This is an experiment to see what using Google Filament is like from Rust, in
-the context of a Legion-based ECS. FFI is done with the `cpp` crate, and window
-creation with the `winit`.
+the context of a Legion-based ECS. This is **not** a wrapper around Filament, or
+a general purpose crate. The actual interaction with Filament is done in C++,
+which is wrapped via `bindgen` for Rust usage. Windowing is done with `winit`
+although Filament itself handles all context creation and management.
 
 ## Building
 
+_Only Windows and OSX are currently supported._
+
+### Filament deps (Required)
+
 The Filament deps are absurdly large (2.77GB extracted for Windows) so they are
 not committed to git (or even git lfs). You need to download and extract them
-yourself.
+yourself:
 
-> Note: This uses the Windows tarball. Other systems can be found at
-> https://github.com/google/filament/releases
+- Download and extract the tarball for Windows or OSX from:
+  https://github.com/google/filament/releases
+- Copy the `lib` and `include` folders to `cpp` (`./cpp/lib/` and
+  `./cpp/include/` respectively).
+- _Optional: If you wish to re-compile materials from source, copy the `bin`
+  folder to the root (`./bin`)._
+
+### Running
 
 ```sh
-# Get the tarball
-wget https://github.com/google/filament/releases/download/v1.3.2/filament-20190827-windows.tgz
-
-# Extract `include` and `lib` into `cpp`.
-tar -C cpp -xvf filament-20190827-windows.tgz include
-tar -C cpp -xvf filament-20190827-windows.tgz lib
-
-# Extract `bin` to the root.
-tar -xvf filament-20190827-windows.tgz bin
-
-# Cleanup the tarball
-rm *.tgz
-
-# Cargo build (builds C++ as well).
-cargo build
+cargo run
 ```
-
-Building has only been tested on Windows. It uses static linking `/MT`.

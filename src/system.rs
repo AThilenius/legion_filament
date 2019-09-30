@@ -1,10 +1,10 @@
 use legion::world::World;
 use shrev::EventChannel;
-use winit::{event::Event, window::Window};
+use winit::{Event, Window};
 
 pub struct Resources {
   pub window: Option<Window>,
-  pub window_event_channel: EventChannel<Event<()>>,
+  pub window_event_channel: EventChannel<Event>,
 }
 
 impl Resources {

@@ -1,36 +1,29 @@
 use crate::{Resources, System};
 use legion::world::World;
-use winit::{
-  event_loop::{ControlFlow, EventLoop},
-  platform::desktop::EventLoopExtDesktop,
-  window::WindowBuilder,
-};
+use winit::{EventsLoop, WindowBuilder};
 
 pub struct WindowSystem {
-  event_loop: EventLoop<()>,
+  events_loop: EventsLoop,
 }
 
 impl System for WindowSystem {
   fn new(resources: &mut Resources) -> Self {
-    let event_loop = EventLoop::new();
-
+    let events_loop = EventsLoop::new();
     resources.window = Some(
       WindowBuilder::new()
         .with_title("Legion Filament")
-        .build(&event_loop)
+        .build(&events_loop)
         .unwrap(),
     );
 
-    WindowSystem { event_loop }
+    WindowSystem { events_loop }
   }
 
   fn run(&mut self, _world: &mut World, resources: &mut Resources) {
     // Collect Winit events
     let mut events = Vec::with_capacity(100);
-
-    self.event_loop.run_return(|event, _, control_flow| {
+    self.events_loop.poll_events(|event| {
       events.push(event);
-      *control_flow = ControlFlow::Exit;
     });
 
     // Drain them into the EventChannel
