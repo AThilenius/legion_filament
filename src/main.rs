@@ -5,7 +5,6 @@ use std::{
 };
 use winit::{Event, WindowEvent};
 
-mod raw_bindings;
 mod rendering_system;
 mod system;
 mod window_system;
