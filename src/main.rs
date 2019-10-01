@@ -5,11 +5,19 @@ use std::{
 };
 use winit::{Event, WindowEvent};
 
+mod material;
+mod mesh;
 mod raw_bindings;
 mod rendering_system;
 mod system;
 mod window_system;
+mod renderable;
 
+use material::{MaterialDefinition, MaterialInstance};
+use mesh::{
+  BoundingBox, Mesh, VertexAttribute, VertexAttributeData, VertexAttributeDefinition,
+  VertexAttributeTypes,
+};
 use rendering_system::RenderingSystem;
 use system::{Resources, System};
 use window_system::WindowSystem;

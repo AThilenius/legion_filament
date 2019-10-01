@@ -1,4 +1,4 @@
-use crate::raw_bindings::filament;
+use crate::raw_bindings;
 use crate::{Resources, System};
 use legion::world::World;
 use winit::Window;
@@ -6,7 +6,7 @@ use winit::Window;
 const MATERIAL_BYTES: &'static [u8] = include_bytes!("../materials/bin/color_unlit.filamat");
 
 pub struct RenderingSystem {
-  filament_rendering_system: filament::RenderingSystem,
+  filament_rendering_system: raw_bindings::RenderingSystem,
 }
 
 impl System for RenderingSystem {
@@ -17,7 +17,7 @@ impl System for RenderingSystem {
 
     RenderingSystem {
       filament_rendering_system: unsafe {
-        filament::RenderingSystem::new(
+        raw_bindings::RenderingSystem::new(
           get_active_surface(window),
           width,
           height,
