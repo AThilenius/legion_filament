@@ -1,32 +1,37 @@
-use crate::{Resources, System};
-use legion::world::World;
-use winit::{EventsLoop, WindowBuilder};
+use crate::ThreadLocalSystem;
+use legion::prelude::*;
+use shrev::EventChannel;
+use winit::{Event, EventsLoop, WindowBuilder};
 
 pub struct WindowSystem {
-  events_loop: EventsLoop,
+    pub window_event_channel: EventChannel<Event>,
+    events_loop: EventsLoop,
 }
 
-impl System for WindowSystem {
-  fn new(resources: &mut Resources) -> Self {
-    let events_loop = EventsLoop::new();
-    resources.window = Some(
-      WindowBuilder::new()
-        .with_title("Legion Filament")
-        .build(&events_loop)
-        .unwrap(),
-    );
+impl ThreadLocalSystem for WindowSystem {
+    fn new(_world: &mut World, resources: &mut Resources) -> Self {
+        let events_loop = EventsLoop::new();
+        resources.insert(
+            WindowBuilder::new()
+                .with_title("Legion Filament")
+                .build(&events_loop)
+                .unwrap(),
+        );
 
-    WindowSystem { events_loop }
-  }
+        WindowSystem {
+            events_loop,
+            window_event_channel: EventChannel::new(),
+        }
+    }
 
-  fn run(&mut self, _world: &mut World, resources: &mut Resources) {
-    // Collect Winit events
-    let mut events = Vec::with_capacity(100);
-    self.events_loop.poll_events(|event| {
-      events.push(event);
-    });
+    fn run(&mut self, _world: &mut World, _resources: &mut Resources) {
+        // Collect Winit events
+        let mut events = Vec::with_capacity(100);
+        self.events_loop.poll_events(|event| {
+            events.push(event);
+        });
 
-    // Drain them into the EventChannel
-    resources.window_event_channel.drain_vec_write(&mut events);
-  }
+        // Drain them into the EventChannel
+        self.window_event_channel.drain_vec_write(&mut events);
+    }
 }

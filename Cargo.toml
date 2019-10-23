@@ -5,9 +5,17 @@ authors = ["Alec Thilenius <alec@thilenius.com>"]
 edition = "2018"
 
 [dependencies]
-filament = { git = "https://github.com/AThilenius/filament-rs.git" }
-legion = { git = "https://github.com/TomGillen/legion.git" }
-legion_transform = { git = "https://github.com/AThilenius/legion_transform.git" }
+bincode = "1.2"
+blake2 = "0.8"
+# filament = { git = "https://github.com/AThilenius/filament-rs.git" }
+filament = { path = "../filament-rs" }
+legion = { git = "https://github.com/jaynus/legion.git", branch = "systems" }
+# legion_transform = { git = "https://github.com/AThilenius/legion_transform.git" }
+legion_transform = { path = "../legion_transform" }
+log = "0.4"
 nalgebra = "0.18"
+rayon = "1.2"
+serde = "1.0"
+serde_derive = "1.0"
 shrev = "1.1"
 winit = "0.19"

@@ -1,69 +1,122 @@
-use crate::{Resources, System};
+use crate::{mesh_storage::*, ThreadLocalSystem};
 use filament::prelude::*;
-use legion::world::World;
+use legion::prelude::*;
+use legion_transform::prelude::*;
+use nalgebra::{Matrix4, Vector3};
 use winit::Window;
 
 const MATERIAL_BYTES: &'static [u8] = include_bytes!("../materials/bin/color_unlit.filamat");
 
+struct FEntityLink(filament::prelude::Entity);
+
 pub struct RenderingSystem {
-  engine: Engine,
-  swap_chain: SwapChain,
-  renderer: Renderer,
-  view: View,
-  scene: Scene,
-  camera: Camera,
+    pub mesh_storage: MeshStorage,
+    engine: Engine,
+    swap_chain: SwapChain,
+    renderer: Renderer,
+    view: View,
+    scene: Scene,
+    camera: Camera,
+
+    // DEBUG
+    material: Material,
 }
 
-impl System for RenderingSystem {
-  fn new(resources: &mut Resources) -> Self {
-    let window = resources.window.as_ref().unwrap();
-    let hidpi = window.get_hidpi_factor();
-    let (width, height) = window.get_inner_size().unwrap().to_physical(hidpi).into();
-    let aspect = width as f64 / height as f64;
+impl ThreadLocalSystem for RenderingSystem {
+    fn new(_world: &mut World, resources: &mut Resources) -> Self {
+        let window = resources.get::<Window>().unwrap();
+        let hidpi = window.get_hidpi_factor();
+        let (width, height) = window.get_inner_size().unwrap().to_physical(hidpi).into();
+        let aspect = width as f64 / height as f64;
 
-    let mut engine = Engine::new(Backend::Default);
-    let swap_chain = engine.create_swap_chain(get_active_surface(&window));
-    let renderer = engine.create_renderer();
-    let mut view = engine.create_view();
-    let mut scene = engine.create_scene();
+        let mut engine = Engine::new(Backend::Default);
+        let swap_chain = engine.create_swap_chain(get_active_surface(&window));
+        let renderer = engine.create_renderer();
+        let mut view = engine.create_view();
+        let scene = engine.create_scene();
 
-    // Make the camera
-    let mut camera = engine.create_camera();
-    camera.set_projection_fov(60.0, aspect, 0.1, 10000.0, Fov::Vertical);
+        // Make the camera
+        let mut camera = engine.create_camera();
+        camera.set_projection_fov(60.0, aspect, 0.1, 10000.0, Fov::Vertical);
 
-    // Setup the view
-    view.set_scene(&scene);
-    view.set_camera(&camera);
-    view.set_viewport(0, 0, width, height);
-    view.set_clear_targets(true, true, false);
+        // Setup the view
+        view.set_scene(&scene);
+        view.set_camera(&camera);
+        view.set_viewport(0, 0, width, height);
+        view.set_clear_color(0.0, 0.0, 1.0, 1.0);
+        view.set_clear_targets(true, true, false);
 
-    RenderingSystem {
-      engine,
-      swap_chain,
-      renderer,
-      view,
-      scene,
-      camera,
+        let material = engine.create_material(MATERIAL_BYTES);
+        camera.set_model_matrix(Matrix4::new_translation(&Vector3::new(0.0, 0.0, 1.0)));
+
+        RenderingSystem {
+            mesh_storage: MeshStorage::new(engine.clone()),
+            engine,
+            swap_chain,
+            renderer,
+            view,
+            scene,
+            camera,
+            material,
+        }
     }
-  }
 
-  fn run(&mut self, _world: &mut World, _resources: &mut Resources) {
-    // Then try to begin another frame (returns false if we need to skip a frame).
-    if self.renderer.begin_frame(&self.swap_chain) {
-      self.renderer.render(&self.view);
-      self.renderer.end_frame();
+    fn run(&mut self, world: &mut World, _resources: &mut Resources) {
+        let mut missing_entity_handle = <Read<MeshHandle>>::query()
+            .filter(!component::<FEntityLink>() & component::<LocalToWorld>());
+
+        // Collect beforehand
+        let missing_entity_handle: Vec<_> = missing_entity_handle
+            .iter_entities(world)
+            .map(|(e, m)| (e, *m))
+            .collect();
+
+        for (entity, mesh_handle) in missing_entity_handle {
+            let f_entity = EntityManager::get().create();
+            self.scene.add_entity(f_entity);
+
+            let (vertex_buffer, index_buffer) = self.mesh_storage.get_buffers(mesh_handle);
+
+            // Build and attach a renderable to the entity.
+            RenderableManager::builder(1)
+                .bounding_box(BoundingBox {
+                    center: Vector3::new(-1., -1., -1.),
+                    half_extent: Vector3::new(1., 1., 1.),
+                })
+                .culling(false)
+                .material(0, &self.material.create_instance())
+                .geometry(0, PrimitiveType::Triangles, &vertex_buffer, &index_buffer)
+                .build(&self.engine, f_entity);
+
+            // Add the FEntityLink to the Legion entity
+            world.add_component(entity, FEntityLink(f_entity));
+        }
+
+        // Update the transform of all entities with links and LocalToWorld.
+        let mut linked_entities = <(Read<FEntityLink>, Read<LocalToWorld>)>::query();
+
+        for (f_entity_link, local_to_world) in linked_entities.iter(world) {
+            self.engine
+                .get_transform_manager()
+                .set_transform(f_entity_link.0, local_to_world.0);
+        }
+
+        // Then try to begin another frame (returns false if we need to skip a frame).
+        if self.renderer.begin_frame(&self.swap_chain) {
+            self.renderer.render(&self.view);
+            self.renderer.end_frame();
+        }
     }
-  }
 }
 
 #[cfg(target_os = "macos")]
 fn get_active_surface(window: &Window) -> *mut std::ffi::c_void {
-  use winit::os::macos::WindowExt;
-  window.get_nsview()
+    use winit::os::macos::WindowExt;
+    window.get_nsview()
 }
 
 #[cfg(target_os = "windows")]
 fn get_active_surface(window: &Window) -> *mut std::ffi::c_void {
-  use winit::os::windows::WindowExt;
-  window.get_hwnd()
+    use winit::os::windows::WindowExt;
+    window.get_hwnd()
 }
