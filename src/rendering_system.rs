@@ -1,8 +1,8 @@
-use crate::{mesh_storage::*, ThreadLocalSystem};
+use crate::{camera::MainCamera, mesh_storage::*, ThreadLocalSystem};
 use filament::prelude::*;
 use legion::prelude::*;
 use legion_transform::prelude::*;
-use nalgebra::{Matrix4, Vector3};
+use nalgebra::Vector3;
 use winit::Window;
 
 const MATERIAL_BYTES: &'static [u8] = include_bytes!("../materials/bin/color_unlit.filamat");
@@ -23,8 +23,8 @@ pub struct RenderingSystem {
 }
 
 impl ThreadLocalSystem for RenderingSystem {
-    fn new(_world: &mut World, resources: &mut Resources) -> Self {
-        let window = resources.get::<Window>().unwrap();
+    fn new(world: &mut World) -> Self {
+        let window = world.resources.get::<Window>().unwrap();
         let hidpi = window.get_hidpi_factor();
         let (width, height) = window.get_inner_size().unwrap().to_physical(hidpi).into();
         let aspect = width as f64 / height as f64;
@@ -47,7 +47,6 @@ impl ThreadLocalSystem for RenderingSystem {
         view.set_clear_targets(true, true, false);
 
         let material = engine.create_material(MATERIAL_BYTES);
-        camera.set_model_matrix(Matrix4::new_translation(&Vector3::new(0.0, 0.0, 1.0)));
 
         RenderingSystem {
             mesh_storage: MeshStorage::new(engine.clone()),
@@ -61,7 +60,7 @@ impl ThreadLocalSystem for RenderingSystem {
         }
     }
 
-    fn run(&mut self, world: &mut World, _resources: &mut Resources) {
+    fn run(&mut self, world: &mut World) {
         let mut missing_entity_handle = <Read<MeshHandle>>::query()
             .filter(!component::<FEntityLink>() & component::<LocalToWorld>());
 
@@ -99,6 +98,20 @@ impl ThreadLocalSystem for RenderingSystem {
             self.engine
                 .get_transform_manager()
                 .set_transform(f_entity_link.0, local_to_world.0);
+        }
+
+        // Update the camera with the first MainCamera.
+        let mut main_camera_query = <(Read<MainCamera>, Read<LocalToWorld>)>::query();
+        let mut first_camera = true;
+        for (_main_camera, local_to_world) in main_camera_query.iter(world) {
+            if !first_camera {
+                warn!("More than one MainCamera component found");
+                break;
+            }
+
+            self.camera.set_model_matrix(local_to_world.0);
+
+            first_camera = false;
         }
 
         // Then try to begin another frame (returns false if we need to skip a frame).

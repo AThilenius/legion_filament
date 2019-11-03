@@ -10,9 +10,9 @@ blake2 = "0.8"
 # filament = { git = "https://github.com/AThilenius/filament-rs.git" }
 filament = { path = "../filament-rs" }
 legion = { git = "https://github.com/jaynus/legion.git", branch = "systems" }
-# legion_transform = { git = "https://github.com/AThilenius/legion_transform.git" }
-legion_transform = { path = "../legion_transform" }
+legion_transform = { git = "https://github.com/AThilenius/legion_transform.git" }
 log = "0.4"
+smallvec = "0.6"
 nalgebra = "0.18"
 rayon = "1.2"
 serde = "1.0"

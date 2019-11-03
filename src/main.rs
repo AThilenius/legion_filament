@@ -1,4 +1,8 @@
+mod camera;
+mod input_handler;
+mod input_system;
 mod mesh_storage;
+mod orbit_system;
 mod rendering_system;
 mod thread_local_system;
 mod window_system;
@@ -6,14 +10,17 @@ mod window_system;
 #[macro_use]
 extern crate log;
 
-#[macro_use]
-extern crate serde_derive;
+// #[macro_use]
+// extern crate serde_derive;
 
+use input_system::InputSystem;
 use legion::prelude::*;
 use legion_transform::prelude::*;
 use mesh_storage::*;
-use nalgebra::{Vector2, Vector3};
+use nalgebra::Vector2;
+use orbit_system::{OrbitControl, OrbitControlsSystem};
 use rendering_system::RenderingSystem;
+use shrev::EventChannel;
 use std::{
     thread::sleep,
     time::{Duration, Instant},
@@ -40,12 +47,13 @@ impl VertexStruct for Vertex {
 fn main() {
     let universe = Universe::new();
     let mut world = universe.create_world();
-    let mut resources = Resources::default();
     let mut schedulables = Vec::new();
 
-    let mut window_system = WindowSystem::new(&mut world, &mut resources);
-    let mut rendering_system = RenderingSystem::new(&mut world, &mut resources);
+    let mut window_system = WindowSystem::new(&mut world);
+    let mut rendering_system = RenderingSystem::new(&mut world);
+    schedulables.push(InputSystem::default().build(&mut world));
     schedulables.extend(TransformSystemBundle::default().build());
+    schedulables.push(OrbitControlsSystem::default().build());
 
     let mesh_handle = rendering_system.mesh_storage.add(
         vec![
@@ -65,18 +73,35 @@ fn main() {
         vec![0, 1, 2],
     );
 
+    let triangle_entity = *world
+        .insert(
+            (),
+            vec![(
+                LocalToWorld::identity(),
+                Translation::new(0.0, 0.0, 0.0),
+                mesh_handle,
+            )],
+        )
+        .first()
+        .unwrap();
+
+    // Add the main camera, with an orbital control
     world.insert(
         (),
         vec![(
             LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, -5.0),
-            mesh_handle,
+            camera::MainCamera::default(),
+            OrbitControl::new(triangle_entity),
         )],
     );
 
     let mut exit = false;
     let target_frame_time = Duration::from_secs(1) / 144;
-    let mut window_event_reader = window_system.window_event_channel.register_reader();
+    let mut window_event_reader = world
+        .resources
+        .get_mut::<EventChannel<Event>>()
+        .unwrap()
+        .register_reader();
 
     // Create a 'prefab' for the cube with physics (prefab can just be a closure?)
     // MeshStorage: ContentHash -> { Vertices, Indices, VertexBuffer, IndexBuffer }
@@ -85,17 +110,19 @@ fn main() {
     while !exit {
         let frame_timer = Instant::now();
 
-        window_system.run(&mut world, &mut resources);
+        window_system.run(&mut world);
 
         for system in schedulables.iter() {
             system.run(&world);
             system.command_buffer_mut().write(&mut world);
         }
 
-        rendering_system.run(&mut world, &mut resources);
+        rendering_system.run(&mut world);
 
-        for event in window_system
-            .window_event_channel
+        for event in world
+            .resources
+            .get::<EventChannel<Event>>()
+            .unwrap()
             .read(&mut window_event_reader)
         {
             match event {
@@ -113,7 +140,11 @@ fn main() {
             "Quad Example - Last frame: {:.2}ms",
             (frame_timer.elapsed().as_micros() as f64) / 1000_f64
         );
-        resources.get_mut::<Window>().unwrap().set_title(&title);
+        world
+            .resources
+            .get_mut::<Window>()
+            .unwrap()
+            .set_title(&title);
 
         // Try to sleep long enough to hit the target frame time.
         if frame_timer.elapsed() < target_frame_time {
